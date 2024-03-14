@@ -1,0 +1,127 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+
+<PageTitle>Home</PageTitle>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Expression Table</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            text-align: center; 
+        }
+
+        input[type="text"] {
+            width: 60px;
+            margin-right: 5px; 
+        }
+
+        .btn {
+            padding: 6px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 5px; 
+        }
+
+        .input-cell {
+            display: flex;
+            align-items: center; 
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Hello, player!</h1>
+    <h3 style="text-align: center;">Welcome to the game.</h3>
+    <p role="status">Your score is: <span id="score">0</span>. There are @connectedUsersCount users currently online.</p> <!-- Display score here -->
+    <table>
+        <thead>
+            <tr>
+                <th>Expression</th>
+                <th>Your Answer</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in _messages)
+            {
+                <tr>
+                    <td>@m</td>
+                    <td class="input-cell"><input type="text"><button class="btn" onclick="checkResult(this.previousElementSibling, '@m')">Submit</button></td>
+                    <td></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <script>
+        var correctAnswersCount = 0; // Variable to store the count of correct answers
+
+        function checkResult(inputField, expression) {
+            var inputValue = inputField.value.trim();
+            var result = eval(expression); // Evaluate the math expression
+
+            var resultCell = inputField.parentNode.nextElementSibling;
+            resultCell.textContent = ''; // Clear previous result
+            if (inputValue === result.toString()) {
+                resultCell.textContent = "OK";
+                correctAnswersCount++; // Increment count of correct answers
+                document.getElementById("score").textContent = correctAnswersCount; // Update displayed score
+            } else {
+                resultCell.textContent = "FAILED";
+            }
+        }
+    </script>
+</body>
+</html>
+
+@code
+{
+    private HubConnection? _hubConnection;
+    private readonly List<string> _messages = new();
+    private int connectedUsersCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:5212/play")
+            .Build();
+
+        _hubConnection.On<string>("ReceiveMathProblem", message =>
+        {
+            _messages.Add(message);
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<int>("UserCountUpdated", count =>
+        {
+            connectedUsersCount = count;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

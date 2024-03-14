@@ -1,0 +1,6 @@
+@MathGame_Server_HostAddress = http://localhost:5212
+
+GET {{MathGame_Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
